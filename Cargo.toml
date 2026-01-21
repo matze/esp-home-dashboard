@@ -1,0 +1,61 @@
+[package]
+edition      = "2024"
+name         = "esp-home-dashboard"
+rust-version = "1.88"
+version      = "0.1.0"
+
+[[bin]]
+name = "esp-home-dashboard"
+path = "./src/bin/main.rs"
+
+[dependencies]
+critical-section = "1.2.0"
+embassy-executor = { version = "0.9.1", features = ["log"] }
+embassy-futures = "0.1.2"
+embassy-net = { version = "0.8.0", features = ["dhcpv4", "dns", "log", "medium-ethernet", "tcp", "udp"] }
+embassy-time = { version = "0.5.0", features = ["log"] }
+embedded-graphics = "0.8.1"
+embedded-hal-bus = { version = "0.3.0", features = ["async"] }
+embedded-io = "0.7.1"
+embedded-io-async = "0.7.0"
+epd-waveshare = { git = "https://github.com/XLPhere/epd-waveshare", branch = "async", default-features = false, features = ["async", "embedded-graphics-core", "graphics", "epd2in13_v3"] }
+esp-alloc = "0.9.0"
+esp-backtrace = { version = "0.18.1", features = ["esp32c3", "panic-handler", "println"] }
+esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32c3", "log-04"] }
+esp-println = { version = "0.16.1", features = ["esp32c3", "log-04"] }
+esp-hal = { version = "~1.0", features = ["esp32c3", "log-04", "unstable"] }
+esp-radio = { version = "0.17.0", features = ["esp-alloc", "esp32c3", "log-04", "smoltcp", "unstable", "wifi"] }
+esp-rtos = { version = "0.2.0", features = ["embassy", "esp-alloc", "esp-radio", "esp32c3", "log-04"] }
+heapless = "0.9.2"
+jiff = { version = "0.2.18", default-features = false, features = ["alloc", "serde"] }
+log = "0.4.27"
+smoltcp = { version = "0.12.0", default-features = false, features = ["log", "dns-max-server-count-4", "medium-ethernet", "multicast", "proto-dhcpv4", "proto-dns", "proto-ipv4", "socket-dns", "socket-icmp", "socket-raw", "socket-tcp", "socket-udp"] }
+static_cell = "2.1.1"
+reqwless = { version = "0.14.0", default-features = false, features = ["alloc", "embedded-tls"] }
+sntpc = { version = "0.8.1", default-features = false }
+sntpc-net-embassy = "0.8.0"
+serde-json-core = "0.6.0"
+serde = { version = "1.0.228", default-features = false, features = ["derive"] }
+serde_repr = "0.1.20"
+embedded-nal-async = "0.9.0"
+serde_with = { version = "3.16.1", default-features = false, features = ["macros"] }
+
+[build-dependencies]
+eg-font-converter = { git = "https://github.com/matze/bdf", branch = "fix-character-cell-calculation" }
+
+[profile.dev]
+# Rust debug is too slow.
+# For debug builds always builds with some optimization
+opt-level = "s"
+
+[profile.dev.package."p384"]
+opt-level = 3
+
+[profile.release]
+codegen-units = 1     # LLVM can perform better optimizations using a single thread
+debug = 2
+debug-assertions = false
+incremental = false
+lto = 'fat'
+opt-level = 's'
+overflow-checks = false

@@ -11,6 +11,11 @@ use crate::icons;
 const HOURLY_URL: &str = "https://api.open-meteo.com/v1/forecast?latitude=49.0068901&longitude=8.4036527&hourly=temperature_2m,weather_code&timezone=Europe%2FBerlin&forecast_days=2";
 const DAILY_URL: &str = "https://api.open-meteo.com/v1/forecast?latitude=49.0068901&longitude=8.4036527&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Europe%2FBerlin&forecast_days=4";
 
+pub enum Error {
+    Http,
+    Parse,
+}
+
 #[derive(Debug)]
 pub struct HourlyForecast {
     pub hour: u8,
@@ -56,7 +61,7 @@ struct DailyData {
 
 pub async fn hourly_forecast<T, D>(
     client: &mut HttpClient<'_, T, D>,
-) -> Option<heapless::Vec<HourlyForecast, 48>>
+) -> Result<heapless::Vec<HourlyForecast, 48>, Error>
 where
     T: TcpConnect,
     D: Dns,
@@ -66,33 +71,28 @@ where
 
     let bytes_read = get(client, HOURLY_URL, &mut write_buffer, &mut read_buffer).await?;
 
-    let response = match serde_json_core::from_slice::<HourlyResponse>(&read_buffer[..bytes_read]) {
-        Ok((data, _)) => Some(data),
-        Err(e) => {
-            log::error!("Failed to parse weather response: {:?}", e);
-            None
-        }
-    }?;
+    let (response, _) = serde_json_core::from_slice::<HourlyResponse>(&read_buffer[..bytes_read])
+        .map_err(|_| Error::Parse)?;
 
-    Some(
-        response
-            .hourly
-            .temperature_2m
-            .into_iter()
-            .zip(response.hourly.weather_code)
-            .enumerate()
-            .map(|(index, (temperature, weather_code))| HourlyForecast {
-                hour: index as u8 % 24,
-                temperature,
-                weather_code,
-            })
-            .collect(),
-    )
+    let forecast = response
+        .hourly
+        .temperature_2m
+        .into_iter()
+        .zip(response.hourly.weather_code)
+        .enumerate()
+        .map(|(index, (temperature, weather_code))| HourlyForecast {
+            hour: index as u8 % 24,
+            temperature,
+            weather_code,
+        })
+        .collect();
+
+    Ok(forecast)
 }
 
 pub async fn daily_forecast<T, D>(
     client: &mut HttpClient<'_, T, D>,
-) -> Option<heapless::Vec<DailyForecast, 4>>
+) -> Result<heapless::Vec<DailyForecast, 4>, Error>
 where
     T: TcpConnect,
     D: Dns,
@@ -102,13 +102,8 @@ where
 
     let bytes_read = get(client, DAILY_URL, &mut write_buffer, &mut read_buffer).await?;
 
-    let response = match serde_json_core::from_slice::<DailyResponse>(&read_buffer[..bytes_read]) {
-        Ok((data, _)) => Some(data),
-        Err(e) => {
-            log::error!("Failed to parse weather response: {:?}", e);
-            None
-        }
-    }?;
+    let (response, _) = serde_json_core::from_slice::<DailyResponse>(&read_buffer[..bytes_read])
+        .map_err(|_| Error::Parse)?;
 
     let DailyData {
         time: date,
@@ -117,21 +112,22 @@ where
         weather_code,
     } = response.daily;
 
-    Some(
-        date.into_iter()
-            .zip(min_temperature)
-            .zip(max_temperature)
-            .zip(weather_code)
-            .map(
-                |(((date, min_temperature), max_temperature), weather_code)| DailyForecast {
-                    date,
-                    min_temperature,
-                    max_temperature,
-                    weather_code,
-                },
-            )
-            .collect(),
-    )
+    let forecast = date
+        .into_iter()
+        .zip(min_temperature)
+        .zip(max_temperature)
+        .zip(weather_code)
+        .map(
+            |(((date, min_temperature), max_temperature), weather_code)| DailyForecast {
+                date,
+                min_temperature,
+                max_temperature,
+                weather_code,
+            },
+        )
+        .collect();
+
+    Ok(forecast)
 }
 
 async fn get<T, D>(
@@ -139,7 +135,7 @@ async fn get<T, D>(
     url: &str,
     write_buffer: &mut [u8],
     read_buffer: &mut [u8],
-) -> Option<usize>
+) -> Result<usize, Error>
 where
     T: TcpConnect,
     D: Dns,
@@ -147,17 +143,17 @@ where
     let size = client
         .request(Method::GET, url)
         .await
-        .ok()?
+        .map_err(|_| Error::Http)?
         .send(write_buffer)
         .await
-        .ok()?
+        .map_err(|_| Error::Http)?
         .body()
         .reader()
         .read_to_end(read_buffer)
         .await
-        .ok()?;
+        .map_err(|_| Error::Http)?;
 
-    Some(size)
+    Ok(size)
 }
 
 pub fn hourly_icon(hour: u8, weather_code: WeatherCode) -> &'static ImageRaw<'static, Color> {

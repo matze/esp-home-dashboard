@@ -2,6 +2,12 @@ use embedded_io_async::Read;
 
 const MAX_SUMMARY_LENGTH: usize = 32;
 
+pub enum Error {
+    ParseEvent,
+    DateTime,
+    PushStr,
+}
+
 /// Sorts events by start date in ascending order.
 pub fn sort_by_date(events: &mut [Event]) {
     events.sort_unstable_by(|a, b| a.start.cmp(&b.start));
@@ -14,7 +20,11 @@ pub struct Event {
     pub summary: heapless::String<MAX_SUMMARY_LENGTH>,
 }
 
-pub async fn parse<R>(mut reader: R, now: jiff::Zoned, events: &mut [Event]) -> &mut [Event]
+pub async fn parse<R>(
+    mut reader: R,
+    now: jiff::Zoned,
+    events: &mut [Event],
+) -> Result<&mut [Event], Error>
 where
     R: Read,
 {
@@ -34,7 +44,7 @@ where
 
         match read_line(&mut reader, &mut line).await {
             Ok(size) => {
-                let s = core::str::from_utf8(&line[..size]).unwrap();
+                let s = core::str::from_utf8(&line[..size]).map_err(|_| Error::ParseEvent)?;
 
                 if s.starts_with("BEGIN:VEVENT") {
                     state = State::InVEvent;
@@ -51,7 +61,7 @@ where
                     state = State::ScanVEvent;
 
                     if events_filled == max_events {
-                        return &mut events[..max_events];
+                        return Ok(&mut events[..max_events]);
                     }
 
                     continue;
@@ -95,12 +105,12 @@ where
                         current_event
                             .summary
                             .push_str(summary)
-                            .expect("pushing str");
+                            .map_err(|_| Error::PushStr)?;
                     }
                 }
             }
             Err(ReadLineError::End) => {
-                return &mut events[..events_filled];
+                return Ok(&mut events[..events_filled]);
             }
             Err(ReadLineError::BufferFull) => {
                 continue;
@@ -109,17 +119,17 @@ where
     }
 }
 
-fn parse_ics_timestamp(s: &str, timezone: jiff::tz::TimeZone) -> Result<jiff::Zoned, ()> {
+fn parse_ics_timestamp(s: &str, timezone: jiff::tz::TimeZone) -> Result<jiff::Zoned, Error> {
     // TODO: also parse full day events without a time
     let datetime = jiff::civil::DateTime::strptime("%Y%m%dT%H%M%S", s.trim_end_matches('Z'))
-        .map_err(|_| ())?;
+        .map_err(|_| Error::DateTime)?;
 
     // If timestamp ends with 'Z', it's UTC - convert to local timezone
     // Otherwise, interpret as already in local timezone
     if s.ends_with('Z') {
         Ok(datetime
             .to_zoned(jiff::tz::TimeZone::UTC)
-            .expect("making UTC Zoned")
+            .map_err(|_| Error::DateTime)?
             .with_time_zone(timezone))
     } else {
         Ok(datetime.to_zoned(timezone).expect("making Zoned"))

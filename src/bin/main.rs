@@ -122,14 +122,14 @@ async fn main(_spawner: Spawner) -> ! {
 
         let mut client = HttpClient::new_with_tls(&tcp, &dns, tls_config);
 
-        if let Some(forecast) = weather::hourly_forecast(&mut client).await {
+        if let Ok(forecast) = weather::hourly_forecast(&mut client).await {
             let hour = clock.now().time().hour();
             let forecast = forecast.into_iter().skip(hour as usize).step_by(2).take(3);
 
             ui::draw_hourly_weather(&mut display, forecast);
         }
 
-        if let Some(forecast) = weather::daily_forecast(&mut client).await {
+        if let Ok(forecast) = weather::daily_forecast(&mut client).await {
             let forecast = forecast.into_iter().skip(1);
             ui::draw_daily_weather(&mut display, forecast);
         }
@@ -147,10 +147,11 @@ async fn main(_spawner: Spawner) -> ! {
         let reader = response.body().reader();
 
         let mut events: [ics::Event; 10] = Default::default();
-        let events = ics::parse(reader, clock.now(), &mut events).await;
-        ics::sort_by_date(events);
 
-        ui::draw_events(&mut display, events);
+        if let Ok(events) = ics::parse(reader, clock.now(), &mut events).await {
+            ics::sort_by_date(events);
+            ui::draw_events(&mut display, events);
+        }
 
         epd.update_and_display_frame(&mut spi, display.buffer(), &mut Delay)
             .await

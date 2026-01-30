@@ -1,11 +1,6 @@
 include!(concat!(env!("OUT_DIR"), "/font_spleen_8_16.rs"));
 include!(concat!(env!("OUT_DIR"), "/font_spleen_12_24.rs"));
 include!(concat!(env!("OUT_DIR"), "/font_spleen_16_32.rs"));
-include!(concat!(env!("OUT_DIR"), "/font_haxor_narrow_15.rs"));
-include!(concat!(
-    env!("OUT_DIR"),
-    "/font_archivo_narrow_digits_36.rs"
-));
 
 use embedded_graphics::image::Image;
 use embedded_graphics::mono_font::{MonoTextStyle, MonoTextStyleBuilder};

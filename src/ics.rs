@@ -98,8 +98,7 @@ where
                         continue;
                     }
 
-                    if s.starts_with("SUMMARY:") {
-                        let summary = &s[8..];
+                    if let Some(summary) = s.strip_prefix("SUMMARY:") {
                         let summary = &summary[..MAX_SUMMARY_LENGTH.min(summary.len())];
 
                         current_event

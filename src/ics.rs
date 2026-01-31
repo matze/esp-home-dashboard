@@ -1,4 +1,8 @@
 use embedded_io_async::Read;
+use embedded_nal_async::{Dns, TcpConnect};
+use reqwless::client::HttpClient;
+
+use crate::clock;
 
 const MAX_SUMMARY_LENGTH: usize = 32;
 
@@ -18,6 +22,29 @@ pub struct Event {
     pub start: jiff::Zoned,
     pub end: jiff::Zoned,
     pub summary: heapless::String<MAX_SUMMARY_LENGTH>,
+}
+
+pub async fn get_events<'a, T, D>(
+    client: &'a mut HttpClient<'_, T, D>,
+    clock: clock::Clock,
+    url: &'static str,
+    events: &'a mut [Event],
+) -> Result<&'a mut [Event], Error>
+where
+    T: TcpConnect,
+    D: Dns,
+{
+    let mut write_buffer = [0u8; 8192];
+
+    let mut request = client
+        .request(reqwless::request::Method::GET, url)
+        .await
+        .unwrap();
+
+    let response = request.send(&mut write_buffer).await.unwrap();
+    let reader = response.body().reader();
+
+    parse(reader, clock.now(), events).await
 }
 
 pub async fn parse<R>(

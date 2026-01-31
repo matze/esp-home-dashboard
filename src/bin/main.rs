@@ -141,19 +141,11 @@ async fn main(_spawner: Spawner) -> ! {
 
             ui::draw_date(&mut display, clock.now().date());
 
-            let mut write_buffer = [0u8; 8192];
-
-            let mut request = client
-                .request(reqwless::request::Method::GET, ICAL_URL)
-                .await
-                .unwrap();
-
-            let response = request.send(&mut write_buffer).await.unwrap();
-            let reader = response.body().reader();
-
             let mut events: [ics::Event; 10] = Default::default();
 
-            if let Ok(events) = ics::parse(reader, clock.now(), &mut events).await {
+            if let Ok(events) =
+                ics::get_events(&mut client, clock.clone(), ICAL_URL, &mut events).await
+            {
                 ics::sort_by_date(events);
                 ui::draw_events(&mut display, events);
             }

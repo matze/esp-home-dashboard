@@ -66,6 +66,8 @@ where
     T: TcpConnect,
     D: Dns,
 {
+    log::debug!("getting hourly forecast");
+
     let mut write_buffer = [0u8; 1024];
     let mut read_buffer = [0u8; 4096 + 2048];
 
@@ -97,6 +99,8 @@ where
     T: TcpConnect,
     D: Dns,
 {
+    log::debug!("getting daily forecast");
+
     let mut write_buffer = [0u8; 1024];
     let mut read_buffer = [0u8; 4096];
 

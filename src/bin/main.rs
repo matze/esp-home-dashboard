@@ -70,10 +70,10 @@ async fn main(_spawner: Spawner) -> ! {
     let mut epd = Epd7in5::new(&mut spi, busy, dc, rst, &mut Delay, None)
         .await
         .expect("creating EPD");
+
     let mut display = Display7in5::default();
 
     display.set_rotation(DisplayRotation::Rotate90);
-    display.clear(Color::Black);
 
     let radio_init = esp_radio::init().expect("initializing Wi-Fi/BLE controller");
 
@@ -91,12 +91,6 @@ async fn main(_spawner: Spawner) -> ! {
     let mut tls_write_buffer = [0; 16384];
 
     let tls_seed = rng.random() as u64 | ((rng.random() as u64) << 32);
-    let tls_config = TlsConfig::new(
-        tls_seed,
-        &mut tls_read_buffer,
-        &mut tls_write_buffer,
-        reqwless::client::TlsVerify::None,
-    );
 
     let timezone = jiff::tz::TimeZone::tzif("Europe/Berlin", TIMEZONE_DATA_EUROPE_BERLIN)
         .expect("parsing timezone data");
@@ -112,58 +106,76 @@ async fn main(_spawner: Spawner) -> ! {
     let sync_time = ntp::sync(&net_stack, clock.clone());
 
     let main_logic = async {
-        log::info!("waiting for link");
-        net_stack.wait_link_up().await;
-        net_stack.wait_config_up().await;
+        loop {
+            log::debug!("waiting for link");
 
-        let dns = DnsSocket::new(net_stack);
-        let tcp_state = TcpClientState::<1, 4096, 4096>::new();
-        let tcp = TcpClient::new(net_stack, &tcp_state);
+            net_stack.wait_link_up().await;
+            net_stack.wait_config_up().await;
 
-        let mut client = HttpClient::new_with_tls(&tcp, &dns, tls_config);
+            let dns = DnsSocket::new(net_stack);
+            let tcp_state = TcpClientState::<1, 4096, 4096>::new();
+            let tcp = TcpClient::new(net_stack, &tcp_state);
 
-        if let Ok(forecast) = weather::hourly_forecast(&mut client).await {
-            let hour = clock.now().time().hour();
-            let forecast = forecast.into_iter().skip(hour as usize).step_by(2).take(3);
+            let tls_config = TlsConfig::new(
+                tls_seed,
+                &mut tls_read_buffer,
+                &mut tls_write_buffer,
+                reqwless::client::TlsVerify::None,
+            );
 
-            ui::draw_hourly_weather(&mut display, forecast);
+            let mut client = HttpClient::new_with_tls(&tcp, &dns, tls_config);
+
+            display.clear(Color::Black);
+
+            if let Ok(forecast) = weather::hourly_forecast(&mut client).await {
+                let hour = clock.now().time().hour();
+                let forecast = forecast.into_iter().skip(hour as usize).step_by(2).take(3);
+
+                ui::draw_hourly_weather(&mut display, forecast);
+            }
+
+            if let Ok(forecast) = weather::daily_forecast(&mut client).await {
+                let forecast = forecast.into_iter().skip(1);
+                ui::draw_daily_weather(&mut display, forecast);
+            }
+
+            ui::draw_date(&mut display, clock.now().date());
+
+            let mut write_buffer = [0u8; 8192];
+
+            let mut request = client
+                .request(reqwless::request::Method::GET, ICAL_URL)
+                .await
+                .unwrap();
+
+            let response = request.send(&mut write_buffer).await.unwrap();
+            let reader = response.body().reader();
+
+            let mut events: [ics::Event; 10] = Default::default();
+
+            if let Ok(events) = ics::parse(reader, clock.now(), &mut events).await {
+                ics::sort_by_date(events);
+                ui::draw_events(&mut display, events);
+            }
+
+            epd.wake_up(&mut spi, &mut Delay)
+                .await
+                .expect("waking up the display");
+
+            epd.update_and_display_frame(&mut spi, display.buffer(), &mut Delay)
+                .await
+                .expect("failed to display frame");
+
+            epd.wait_until_idle(&mut spi, &mut Delay)
+                .await
+                .expect("wait until idle to succeed");
+
+            epd.sleep(&mut spi, &mut Delay)
+                .await
+                .expect("failed to put EPD to sleep");
+
+            Timer::after(Duration::from_secs(60 * 60)).await;
         }
-
-        if let Ok(forecast) = weather::daily_forecast(&mut client).await {
-            let forecast = forecast.into_iter().skip(1);
-            ui::draw_daily_weather(&mut display, forecast);
-        }
-
-        ui::draw_date(&mut display, clock.now().date());
-
-        let mut write_buffer = [0u8; 8192];
-
-        let mut request = client
-            .request(reqwless::request::Method::GET, ICAL_URL)
-            .await
-            .unwrap();
-
-        let response = request.send(&mut write_buffer).await.unwrap();
-        let reader = response.body().reader();
-
-        let mut events: [ics::Event; 10] = Default::default();
-
-        if let Ok(events) = ics::parse(reader, clock.now(), &mut events).await {
-            ics::sort_by_date(events);
-            ui::draw_events(&mut display, events);
-        }
-
-        epd.update_and_display_frame(&mut spi, display.buffer(), &mut Delay)
-            .await
-            .expect("failed to display frame");
-
-        epd.wait_until_idle(&mut spi, &mut Delay)
-            .await
-            .expect("wait until idle to succeed");
-
-        epd.sleep(&mut spi, &mut Delay)
-            .await
-            .expect("failed to put EPD to sleep");
     };
 
     join::join(

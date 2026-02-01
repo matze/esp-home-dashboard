@@ -9,8 +9,23 @@ use serde_with::serde_as;
 use crate::errors::Error;
 use crate::icons;
 
-const HOURLY_URL: &str = "https://api.open-meteo.com/v1/forecast?latitude=49.0068901&longitude=8.4036527&hourly=temperature_2m,weather_code&timezone=Europe%2FBerlin&forecast_days=2";
-const DAILY_URL: &str = "https://api.open-meteo.com/v1/forecast?latitude=49.0068901&longitude=8.4036527&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Europe%2FBerlin&forecast_days=4";
+const HOURLY_URL: &str = concat!(
+    "https://api.open-meteo.com/v1/forecast?",
+    "latitude=",
+    env!("WEATHER_LAT"),
+    "&longitude=",
+    env!("WEATHER_LON"),
+    "&hourly=temperature_2m,weather_code&timezone=Europe%2FBerlin&forecast_days=2"
+);
+
+const DAILY_URL: &str = concat!(
+    "https://api.open-meteo.com/v1/forecast?",
+    "latitude=",
+    env!("WEATHER_LAT"),
+    "&longitude=",
+    env!("WEATHER_LON"),
+    "&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Europe%2FBerlin&forecast_days=4"
+);
 
 #[derive(Debug)]
 pub struct HourlyForecast {

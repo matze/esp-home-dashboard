@@ -6,15 +6,11 @@ use serde::Deserialize;
 use serde_repr::Deserialize_repr;
 use serde_with::serde_as;
 
+use crate::errors::Error;
 use crate::icons;
 
 const HOURLY_URL: &str = "https://api.open-meteo.com/v1/forecast?latitude=49.0068901&longitude=8.4036527&hourly=temperature_2m,weather_code&timezone=Europe%2FBerlin&forecast_days=2";
 const DAILY_URL: &str = "https://api.open-meteo.com/v1/forecast?latitude=49.0068901&longitude=8.4036527&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Europe%2FBerlin&forecast_days=4";
-
-pub enum Error {
-    Http,
-    Parse,
-}
 
 #[derive(Debug)]
 pub struct HourlyForecast {
@@ -74,7 +70,7 @@ where
     let bytes_read = get(client, HOURLY_URL, &mut write_buffer, &mut read_buffer).await?;
 
     let (response, _) = serde_json_core::from_slice::<HourlyResponse>(&read_buffer[..bytes_read])
-        .map_err(|_| Error::Parse)?;
+        .map_err(|_| Error::ParseJson("failed to parse hourly response"))?;
 
     let forecast = response
         .hourly
@@ -107,7 +103,7 @@ where
     let bytes_read = get(client, DAILY_URL, &mut write_buffer, &mut read_buffer).await?;
 
     let (response, _) = serde_json_core::from_slice::<DailyResponse>(&read_buffer[..bytes_read])
-        .map_err(|_| Error::Parse)?;
+        .map_err(|_| Error::ParseJson("failed to parse daily response"))?;
 
     let DailyData {
         time: date,
@@ -147,15 +143,15 @@ where
     let size = client
         .request(Method::GET, url)
         .await
-        .map_err(|_| Error::Http)?
+        .map_err(|_| Error::Http("failed to connect to weather URL"))?
         .send(write_buffer)
         .await
-        .map_err(|_| Error::Http)?
+        .map_err(|_| Error::Http("failed to send request"))?
         .body()
         .reader()
         .read_to_end(read_buffer)
         .await
-        .map_err(|_| Error::Http)?;
+        .map_err(|_| Error::Http("failed to read into buffer"))?;
 
     Ok(size)
 }

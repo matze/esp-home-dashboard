@@ -3,15 +3,9 @@ use embedded_nal_async::{Dns, TcpConnect};
 use reqwless::client::HttpClient;
 
 use crate::clock;
+use crate::errors::Error;
 
 const MAX_SUMMARY_LENGTH: usize = 32;
-
-pub enum Error {
-    Http,
-    ParseEvent,
-    DateTime,
-    PushStr,
-}
 
 #[derive(Default)]
 pub struct Event {
@@ -36,12 +30,13 @@ where
     let mut request = client
         .request(reqwless::request::Method::GET, url)
         .await
-        .map_err(|_| Error::Http)?;
+        .map_err(|_| Error::Http("failed to connect to calendar URL"))?;
 
     let response = request
         .send(&mut write_buffer)
         .await
-        .map_err(|_| Error::Http)?;
+        .map_err(|_| Error::Http("failed to send request"))?;
+
     let reader = response.body().reader();
 
     let events = parse(reader, clock.now(), events).await?;
@@ -74,7 +69,8 @@ where
 
         match read_line(&mut reader, &mut line).await {
             Ok(size) => {
-                let s = core::str::from_utf8(&line[..size]).map_err(|_| Error::ParseEvent)?;
+                let s = core::str::from_utf8(&line[..size])
+                    .map_err(|_| Error::ParseEvent("failed to construct UTF-8 string"))?;
 
                 if s.starts_with("BEGIN:VEVENT") {
                     state = State::InVEvent;
@@ -134,7 +130,7 @@ where
                         current_event
                             .summary
                             .push_str(summary)
-                            .map_err(|_| Error::PushStr)?;
+                            .map_err(|_| Error::ParseEvent("failed to push summary string"))?;
                     }
                 }
             }
@@ -151,17 +147,19 @@ where
 fn parse_ics_timestamp(s: &str, timezone: jiff::tz::TimeZone) -> Result<jiff::Zoned, Error> {
     // TODO: also parse full day events without a time
     let datetime = jiff::civil::DateTime::strptime("%Y%m%dT%H%M%S", s.trim_end_matches('Z'))
-        .map_err(|_| Error::DateTime)?;
+        .map_err(|_| Error::DateTime("failed to parse date time"))?;
 
     // If timestamp ends with 'Z', it's UTC - convert to local timezone
     // Otherwise, interpret as already in local timezone
     if s.ends_with('Z') {
         Ok(datetime
             .to_zoned(jiff::tz::TimeZone::UTC)
-            .map_err(|_| Error::DateTime)?
+            .map_err(|_| Error::DateTime("failed to make UTC date time zoned"))?
             .with_time_zone(timezone))
     } else {
-        datetime.to_zoned(timezone).map_err(|_| Error::DateTime)
+        datetime
+            .to_zoned(timezone)
+            .map_err(|_| Error::DateTime("failed to make date time zoned"))
     }
 }
 

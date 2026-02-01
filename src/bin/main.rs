@@ -127,26 +127,39 @@ async fn main(_spawner: Spawner) -> ! {
 
             display.clear(Color::Black);
 
-            if let Ok(forecast) = weather::hourly_forecast(&mut client).await {
-                let hour = clock.now().time().hour();
-                let forecast = forecast.into_iter().skip(hour as usize).step_by(2).take(3);
+            match weather::hourly_forecast(&mut client).await {
+                Ok(forecast) => {
+                    let hour = clock.now().time().hour();
+                    let forecast = forecast.into_iter().skip(hour as usize).step_by(2).take(3);
 
-                ui::draw_hourly_weather(&mut display, forecast);
+                    ui::draw_hourly_weather(&mut display, forecast);
+                }
+                Err(err) => {
+                    log::error!("failed to fetch hourly forecast: {err:?}");
+                }
             }
 
-            if let Ok(forecast) = weather::daily_forecast(&mut client).await {
-                let forecast = forecast.into_iter().skip(1);
-                ui::draw_daily_weather(&mut display, forecast);
+            match weather::daily_forecast(&mut client).await {
+                Ok(forecast) => {
+                    let forecast = forecast.into_iter().skip(1);
+                    ui::draw_daily_weather(&mut display, forecast);
+                }
+                Err(err) => {
+                    log::error!("failed to fetch daily forecast: {err:?}");
+                }
             }
 
             ui::draw_date(&mut display, clock.now().date());
 
             let mut events: [ics::Event; 10] = Default::default();
 
-            if let Ok(events) =
-                ics::get_events(&mut client, clock.clone(), ICAL_URL, &mut events).await
-            {
-                ui::draw_events(&mut display, events);
+            match ics::get_events(&mut client, clock.clone(), ICAL_URL, &mut events).await {
+                Ok(events) => {
+                    ui::draw_events(&mut display, events);
+                }
+                Err(err) => {
+                    log::error!("failed to fetch events: {err:?}");
+                }
             }
 
             epd.wake_up(&mut spi, &mut Delay)

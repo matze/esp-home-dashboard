@@ -146,7 +146,6 @@ async fn main(_spawner: Spawner) -> ! {
             if let Ok(events) =
                 ics::get_events(&mut client, clock.clone(), ICAL_URL, &mut events).await
             {
-                ics::sort_by_date(events);
                 ui::draw_events(&mut display, events);
             }
 

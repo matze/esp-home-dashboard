@@ -12,11 +12,6 @@ pub enum Error {
     PushStr,
 }
 
-/// Sorts events by start date in ascending order.
-pub fn sort_by_date(events: &mut [Event]) {
-    events.sort_unstable_by(|a, b| a.start.cmp(&b.start));
-}
-
 #[derive(Default)]
 pub struct Event {
     pub start: jiff::Zoned,
@@ -24,6 +19,7 @@ pub struct Event {
     pub summary: heapless::String<MAX_SUMMARY_LENGTH>,
 }
 
+/// Fetch calendar events and return a sorted slice for the given `events` input array.
 pub async fn get_events<'a, T, D>(
     client: &'a mut HttpClient<'_, T, D>,
     clock: clock::Clock,
@@ -44,10 +40,13 @@ where
     let response = request.send(&mut write_buffer).await.unwrap();
     let reader = response.body().reader();
 
-    parse(reader, clock.now(), events).await
+    let events = parse(reader, clock.now(), events).await?;
+    events.sort_unstable_by(|a, b| a.start.cmp(&b.start));
+
+    Ok(events)
 }
 
-pub async fn parse<R>(
+async fn parse<R>(
     mut reader: R,
     now: jiff::Zoned,
     events: &mut [Event],

@@ -46,23 +46,31 @@ pub async fn sync(net_stack: &Stack<'_>, clock: Clock) {
             return;
         }
 
-        // TODO: error handling
-        let address = net_stack
+        let addresses = match net_stack
             .dns_query("de.pool.ntp.org", embassy_net::dns::DnsQueryType::A)
             .await
-            .unwrap()[0];
-
-        log::info!("resolved NTP address {address:?}");
-
-        let socket_wrapper = UdpSocketWrapper::new(socket);
-        let context = sntpc::NtpContext::new(TimestampGenerator::default());
-
-        match sntpc::get_time((address, 123).into(), &socket_wrapper, context).await {
-            Ok(time) => {
-                clock.sync(time.sec().into());
-                Timer::after_secs(3600).await;
+        {
+            Ok(addresses) => addresses,
+            Err(err) => {
+                log::error!("failed to query DNS record: {err:?}");
+                Timer::after_secs(30).await;
+                continue;
             }
-            Err(e) => log::error!("NTP error: {:?}", e),
+        };
+
+        log::info!("resolved NTP name to {addresses:?}");
+
+        if let Some(address) = addresses.first() {
+            let socket_wrapper = UdpSocketWrapper::new(socket);
+            let context = sntpc::NtpContext::new(TimestampGenerator::default());
+
+            match sntpc::get_time((*address, 123).into(), &socket_wrapper, context).await {
+                Ok(time) => {
+                    clock.sync(time.sec().into());
+                    Timer::after_secs(3600).await;
+                }
+                Err(e) => log::error!("NTP error: {:?}", e),
+            }
         }
     }
 }

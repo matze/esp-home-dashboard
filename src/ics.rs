@@ -7,6 +7,7 @@ use crate::clock;
 const MAX_SUMMARY_LENGTH: usize = 32;
 
 pub enum Error {
+    Http,
     ParseEvent,
     DateTime,
     PushStr,
@@ -35,9 +36,12 @@ where
     let mut request = client
         .request(reqwless::request::Method::GET, url)
         .await
-        .unwrap();
+        .map_err(|_| Error::Http)?;
 
-    let response = request.send(&mut write_buffer).await.unwrap();
+    let response = request
+        .send(&mut write_buffer)
+        .await
+        .map_err(|_| Error::Http)?;
     let reader = response.body().reader();
 
     let events = parse(reader, clock.now(), events).await?;
@@ -95,33 +99,33 @@ where
 
                 if matches!(state, State::InVEvent) {
                     if s.starts_with("DTEND") {
-                        let colon = s.find(':').expect("colon");
+                        if let Some((_, timestamp)) = s.split_once(':') {
+                            let Ok(end) = parse_ics_timestamp(timestamp, timezone.clone()) else {
+                                state = State::ScanVEvent;
+                                continue;
+                            };
 
-                        let Ok(end) = parse_ics_timestamp(&s[colon + 1..], timezone.clone()) else {
-                            state = State::ScanVEvent;
+                            if end < now {
+                                state = State::ScanVEvent;
+                            } else {
+                                current_event.end = end;
+                            }
+
                             continue;
-                        };
-
-                        if end < now {
-                            state = State::ScanVEvent;
-                        } else {
-                            current_event.end = end;
                         }
-
-                        continue;
                     }
 
                     if s.starts_with("DTSTART") {
-                        let colon = s.find(':').expect("colon");
+                        if let Some((_, timestamp)) = s.split_once(':') {
+                            let Ok(start) = parse_ics_timestamp(&timestamp, timezone.clone())
+                            else {
+                                state = State::ScanVEvent;
+                                continue;
+                            };
 
-                        let Ok(start) = parse_ics_timestamp(&s[colon + 1..], timezone.clone())
-                        else {
-                            state = State::ScanVEvent;
+                            current_event.start = start;
                             continue;
-                        };
-
-                        current_event.start = start;
-                        continue;
+                        }
                     }
 
                     if let Some(summary) = s.strip_prefix("SUMMARY:") {
@@ -157,7 +161,7 @@ fn parse_ics_timestamp(s: &str, timezone: jiff::tz::TimeZone) -> Result<jiff::Zo
             .map_err(|_| Error::DateTime)?
             .with_time_zone(timezone))
     } else {
-        Ok(datetime.to_zoned(timezone).expect("making Zoned"))
+        datetime.to_zoned(timezone).map_err(|_| Error::DateTime)
     }
 }
 

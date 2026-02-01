@@ -166,7 +166,8 @@ async fn main(_spawner: Spawner) -> ! {
                 .await
                 .expect("failed to put EPD to sleep");
 
-            Timer::after(Duration::from_secs(60 * 60)).await;
+            // Schedule next update for the next full hour. Add a minute for some leeway.
+            Timer::after(Duration::from_secs(60 * (61 - clock.now().minute() as u64))).await;
         }
     };
 

@@ -91,8 +91,8 @@ pub fn draw_hourly_weather(
         .build();
 
     for (index, forecast) in forecast.enumerate() {
-        let temperature: String<8> =
-            format!("{:.0}°C", forecast.temperature).expect("formatting temperature");
+        let temperature: String<8> = format!("{:.0}°C", fix_minus_zero(forecast.temperature))
+            .expect("formatting temperature");
 
         let hour: String<8> = format!("{:0>2}:00", forecast.hour).unwrap();
 
@@ -137,7 +137,8 @@ pub fn draw_daily_weather(
     for (index, forecast) in forecast.enumerate() {
         let temperature: String<16> = format!(
             "{:.0}°C/{:.0}°C",
-            forecast.min_temperature, forecast.max_temperature
+            fix_minus_zero(forecast.min_temperature),
+            fix_minus_zero(forecast.max_temperature)
         )
         .expect("formatting temperature");
 
@@ -334,4 +335,8 @@ pub fn draw_events(display: &mut Display7in5, events: &[ics::Event]) {
         .draw(display)
         .unwrap();
     }
+}
+
+fn fix_minus_zero(num: f32) -> f32 {
+    if num > -1.0 && num < 0.0 { 0.0 } else { num }
 }

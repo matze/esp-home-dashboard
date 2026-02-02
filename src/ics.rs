@@ -9,9 +9,66 @@ const MAX_SUMMARY_LENGTH: usize = 32;
 
 #[derive(Default)]
 pub struct Event {
-    pub start: jiff::Zoned,
-    pub end: jiff::Zoned,
+    pub start: Either,
+    pub end: Either,
     pub summary: heapless::String<MAX_SUMMARY_LENGTH>,
+}
+
+/// Enum to discriminate between full-day and timed events.
+#[derive(Debug, Clone, Eq)]
+pub enum Either {
+    /// Event starts or ends on a particular time.
+    DateTime(jiff::Zoned),
+    /// Event covers a full day.
+    Date(jiff::civil::Date),
+}
+
+impl Default for Either {
+    fn default() -> Self {
+        Self::DateTime(jiff::Zoned::default())
+    }
+}
+
+impl Either {
+    pub fn date(&self) -> jiff::civil::Date {
+        match self {
+            Either::DateTime(zoned) => zoned.date(),
+            Either::Date(date) => date.clone(),
+        }
+    }
+}
+
+impl PartialEq for Either {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Either::DateTime(a), Either::DateTime(b)) => a == b,
+            (Either::Date(a), Either::Date(b)) => a == b,
+            _ => false,
+        }
+    }
+}
+
+impl PartialOrd for Either {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Either {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        match (self, other) {
+            (Either::DateTime(a), Either::DateTime(b)) => a.cmp(b),
+            (Either::Date(a), Either::Date(b)) => a.cmp(b),
+            (Either::DateTime(dt), Either::Date(d)) => match dt.date().cmp(d) {
+                core::cmp::Ordering::Equal => core::cmp::Ordering::Greater,
+                other => other,
+            },
+            (Either::Date(d), Either::DateTime(dt)) => match d.cmp(&dt.date()) {
+                core::cmp::Ordering::Equal => core::cmp::Ordering::Less,
+                other => other,
+            },
+        }
+    }
 }
 
 /// Fetch calendar events and return a sorted slice for the given `events` input array.
@@ -101,7 +158,7 @@ where
                                 continue;
                             };
 
-                            if end < now {
+                            if end < Either::DateTime(now.clone()) {
                                 state = State::ScanVEvent;
                             } else {
                                 current_event.end = end;
@@ -144,22 +201,32 @@ where
     }
 }
 
-fn parse_ics_timestamp(s: &str, timezone: jiff::tz::TimeZone) -> Result<jiff::Zoned, Error> {
-    // TODO: also parse full day events without a time
+fn parse_ics_timestamp(s: &str, timezone: jiff::tz::TimeZone) -> Result<Either, Error> {
+    if !s.contains('T') {
+        let date = jiff::civil::Date::strptime("%Y%m%d", s)
+            .map_err(|_| Error::DateTime("failed to parse date"))?;
+
+        return Ok(Either::Date(date));
+    }
+
     let datetime = jiff::civil::DateTime::strptime("%Y%m%dT%H%M%S", s.trim_end_matches('Z'))
         .map_err(|_| Error::DateTime("failed to parse date time"))?;
 
     // If timestamp ends with 'Z', it's UTC - convert to local timezone
     // Otherwise, interpret as already in local timezone
     if s.ends_with('Z') {
-        Ok(datetime
+        let zoned = datetime
             .to_zoned(jiff::tz::TimeZone::UTC)
             .map_err(|_| Error::DateTime("failed to make UTC date time zoned"))?
-            .with_time_zone(timezone))
+            .with_time_zone(timezone);
+
+        Ok(Either::DateTime(zoned))
     } else {
-        datetime
+        let zoned = datetime
             .to_zoned(timezone)
-            .map_err(|_| Error::DateTime("failed to make date time zoned"))
+            .map_err(|_| Error::DateTime("failed to make date time zoned"))?;
+
+        Ok(Either::DateTime(zoned))
     }
 }
 

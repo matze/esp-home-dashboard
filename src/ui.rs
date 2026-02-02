@@ -14,6 +14,7 @@ use heapless::{String, format};
 use jiff::civil::{Date, Weekday};
 use jiff::fmt::strtime;
 
+use crate::ics::Either;
 use crate::{ics, weather};
 
 const SPLEEN_HUGE_STYLE: MonoTextStyle<Color> = MonoTextStyleBuilder::new()
@@ -219,7 +220,7 @@ pub fn draw_events(display: &mut Display7in5, events: &[ics::Event]) {
     const MONTH_LINE_X: i32 = 20; // X position for vertical month line
     const DAY_COL_X: i32 = 40; // X position for day column (shifted right)
     const EVENT_COL_X: i32 = 72; // X position for event details (shifted right)
-    const EVENT_HEIGHT: i32 = 64;
+    const EVENT_HEIGHT: i32 = 60;
     const FIRST_EVENT_Y: i32 = 70; // Y offset for first event
 
     struct MonthGroup {
@@ -290,11 +291,7 @@ pub fn draw_events(display: &mut Display7in5, events: &[ics::Event]) {
 
     for (index, event) in events.iter().enumerate() {
         let y_offset = FIRST_EVENT_Y + index as i32 * EVENT_HEIGHT;
-        let start_date = event.start.date();
-
-        let day = strtime::format("%d", start_date).unwrap();
-        let start_time = strtime::format("%H:%M", event.start.time()).unwrap();
-        let end_time = strtime::format("%H:%M", event.end.time()).unwrap();
+        let day = strtime::format("%d", event.start.date()).unwrap();
 
         Text::with_text_style(
             &day,
@@ -306,7 +303,7 @@ pub fn draw_events(display: &mut Display7in5, events: &[ics::Event]) {
         .unwrap();
 
         Text::with_text_style(
-            localized_weekday(start_date.weekday()),
+            localized_weekday(event.start.date().weekday()),
             Point::new(DAY_COL_X, y_offset + 46),
             SPLEEN_SMALL_STYLE,
             text_style,
@@ -324,16 +321,57 @@ pub fn draw_events(display: &mut Display7in5, events: &[ics::Event]) {
         .draw(display)
         .unwrap();
 
-        let duration: String<16> = format!("{start_time}-{end_time}").unwrap();
+        let (duration_x, duration): (i32, String<32>) = match (&event.start, &event.end) {
+            (Either::Date(_), Either::Date(end_date)) => {
+                let line_y = y_offset + 46 + 8;
+
+                Line::new(
+                    Point::new(EVENT_COL_X, line_y),
+                    Point::new(EVENT_COL_X + 16, line_y),
+                )
+                .into_styled(LINE_STYLE)
+                .draw(display)
+                .unwrap();
+
+                let end_formatted = format!(
+                    "bis {}, {}",
+                    localized_weekday(end_date.weekday()),
+                    strtime::format("%d.%m.", *end_date).unwrap()
+                )
+                .unwrap();
+
+                (EVENT_COL_X + 24, end_formatted)
+            }
+            _ => {
+                let start = format_either(event.start.clone());
+                let end = format_either(event.end.clone());
+                (EVENT_COL_X, format!("{start} - {end}").unwrap())
+            }
+        };
 
         Text::with_text_style(
             &duration,
-            Point::new(EVENT_COL_X, y_offset + 46),
+            Point::new(duration_x, y_offset + 46),
             SPLEEN_SMALL_STYLE,
             TOP_TEXT_STYLE,
         )
         .draw(display)
         .unwrap();
+    }
+}
+
+fn format_either(either: Either) -> String<16> {
+    match either {
+        ics::Either::DateTime(zoned) => {
+            format!("{}", strtime::format("%H:%M", zoned.time()).unwrap())
+                .expect("formatting zoned")
+        }
+        ics::Either::Date(date) => format!(
+            "{}, {}",
+            localized_weekday(date.weekday()),
+            strtime::format("%d.%m", date).unwrap()
+        )
+        .expect("formatting date"),
     }
 }
 

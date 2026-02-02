@@ -23,7 +23,7 @@ impl sntpc::NtpTimestampGenerator for TimestampGenerator {
     }
 }
 
-pub async fn sync(net_stack: &Stack<'_>, clock: Clock) {
+pub async fn sync(net_stack: &Stack<'_>, host_name: &str, clock: Clock) {
     loop {
         net_stack.wait_link_up().await;
         net_stack.wait_config_up().await;
@@ -47,7 +47,7 @@ pub async fn sync(net_stack: &Stack<'_>, clock: Clock) {
         }
 
         let addresses = match net_stack
-            .dns_query("de.pool.ntp.org", embassy_net::dns::DnsQueryType::A)
+            .dns_query(host_name, embassy_net::dns::DnsQueryType::A)
             .await
         {
             Ok(addresses) => addresses,

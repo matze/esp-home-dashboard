@@ -29,6 +29,7 @@ const WIFI_SSID: &str = env!("WIFI_SSID");
 const WIFI_PASSWORD: &str = env!("WIFI_PASSWORD");
 const ICAL_URL: &str = env!("ICAL_URL");
 const TIMEZONE_DATA_EUROPE_BERLIN: &[u8] = include_bytes!("/usr/share/zoneinfo/Europe/Berlin");
+const NTP_HOST_NAME: Option<&str> = option_env!("NTP_HOST_NAME");
 
 #[allow(clippy::large_stack_frames)]
 #[esp_rtos::main]
@@ -103,7 +104,11 @@ async fn main(_spawner: Spawner) -> ! {
     let (net_stack, mut net_runner) =
         embassy_net::new(wifi_device, net_config, &mut resources, net_seed);
 
-    let sync_time = ntp::sync(&net_stack, clock.clone());
+    let sync_time = ntp::sync(
+        &net_stack,
+        NTP_HOST_NAME.unwrap_or("de.pool.ntp.org"),
+        clock.clone(),
+    );
 
     let main_logic = async {
         loop {

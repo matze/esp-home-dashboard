@@ -135,7 +135,7 @@ pub fn draw_daily_weather(
         .build();
 
     for (index, forecast) in forecast.enumerate() {
-        let temperature: String<10> = format!(
+        let temperature: String<16> = format!(
             "{:.0}°C/{:.0}°C",
             forecast.min_temperature, forecast.max_temperature
         )

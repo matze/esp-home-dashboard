@@ -27,12 +27,14 @@ Connect display VCC to 3.3V and GND to ground.
 Environment variables are embedded at compile time:
 
 ```bash
-WIFI_SSID="..." \
-WIFI_PASSWORD="..." \
-NTP_HOST_NAME="..." \
-ICAL_URL="..." \
-WEATHER_LAT="..." \
-WEATHER_LON="..." cargo run --release
+WIFI_SSID="" \
+WIFI_PASSWORD="" \
+NTP_HOST_NAME="" \
+ICAL_URL="" \
+WEATHER_LAT="" \
+WEATHER_LON="" \
+TODO_URL="" \
+TODO_AUTHORIZATION_HEADER="" cargo run --release
 ```
 
 Note, `NTP_HOST_NAME` defaults to `de.pool.ntp.org`.

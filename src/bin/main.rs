@@ -21,7 +21,7 @@ use esp_hal::spi::master::{Config, Spi};
 use esp_hal::timer::timg::TimerGroup;
 use reqwless::client::{HttpClient, TlsConfig};
 
-use esp_home_dashboard::{clock, ics, ntp, ui, weather, wifi};
+use esp_home_dashboard::{clock, ics, ntp, todo, ui, weather, wifi};
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
@@ -30,6 +30,8 @@ const WIFI_PASSWORD: &str = env!("WIFI_PASSWORD");
 const ICAL_URL: &str = env!("ICAL_URL");
 const TIMEZONE_DATA_EUROPE_BERLIN: &[u8] = include_bytes!("/usr/share/zoneinfo/Europe/Berlin");
 const NTP_HOST_NAME: Option<&str> = option_env!("NTP_HOST_NAME");
+const TODO_URL: Option<&str> = option_env!("TODO_URL");
+const TODO_AUTHORIZATION_HEADER: Option<&str> = option_env!("TODO_AUTHORIZATION_HEADER");
 
 #[allow(clippy::large_stack_frames)]
 #[esp_rtos::main]
@@ -118,7 +120,7 @@ async fn main(_spawner: Spawner) -> ! {
             net_stack.wait_config_up().await;
 
             let dns = DnsSocket::new(net_stack);
-            let tcp_state = TcpClientState::<1, 4096, 4096>::new();
+            let tcp_state = TcpClientState::<3, 4096, 4096>::new();
             let tcp = TcpClient::new(net_stack, &tcp_state);
 
             let tls_config = TlsConfig::new(
@@ -164,6 +166,19 @@ async fn main(_spawner: Spawner) -> ! {
                 }
                 Err(err) => {
                     log::error!("failed to fetch events: {err:?}");
+                }
+            }
+
+            if let Some((url, auth_header)) = TODO_URL.zip(TODO_AUTHORIZATION_HEADER) {
+                let mut read_buffer = [0u8; 1024];
+
+                match todo::get_todos(&mut client, url, auth_header, &mut read_buffer).await {
+                    Ok(todos) => {
+                        ui::draw_todos(&mut display, todos);
+                    }
+                    Err(err) => {
+                        log::error!("failed to fetch todos: {err:?}");
+                    }
                 }
             }
 

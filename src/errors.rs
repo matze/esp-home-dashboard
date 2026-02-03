@@ -8,6 +8,8 @@ pub enum Error {
     ParseJson(&'static str),
     /// ICS event parse error.
     ParseEvent(&'static str),
+    /// UTF-8 conversion error.
+    ParseUtf8,
     /// Generic date/time error.
     DateTime(&'static str),
 }

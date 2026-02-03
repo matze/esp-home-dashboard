@@ -4,8 +4,8 @@ include!(concat!(env!("OUT_DIR"), "/font_spleen_16_32.rs"));
 
 use embedded_graphics::image::Image;
 use embedded_graphics::mono_font::{MonoTextStyle, MonoTextStyleBuilder};
-use embedded_graphics::prelude::{Drawable, Point, Primitive};
-use embedded_graphics::primitives::{Line, PrimitiveStyle};
+use embedded_graphics::prelude::{Drawable, Point, Primitive, Size};
+use embedded_graphics::primitives::{Line, PrimitiveStyle, Rectangle, RoundedRectangle};
 use embedded_graphics::text::{Alignment, Baseline, Text, TextStyle, TextStyleBuilder};
 use epd_waveshare::epd7in5_v2::Display7in5;
 use epd_waveshare::prelude::*;
@@ -38,6 +38,8 @@ const SPLEEN_SMALL_STYLE: MonoTextStyle<Color> = MonoTextStyleBuilder::new()
 const LINE_STYLE: PrimitiveStyle<Color> = PrimitiveStyle::with_stroke(Color::White, 1);
 
 const TOP_TEXT_STYLE: TextStyle = TextStyleBuilder::new().baseline(Baseline::Top).build();
+
+const BOTTOM_TEXT_STYLE: TextStyle = TextStyleBuilder::new().baseline(Baseline::Bottom).build();
 
 fn localized_weekday(weekday: Weekday) -> &'static str {
     match weekday {
@@ -207,21 +209,17 @@ fn draw_vertical_month_label(
 }
 
 pub fn draw_events(display: &mut Display7in5, events: &[ics::Event]) {
-    if events.is_empty() {
-        return;
-    }
-
-    let text_style = TextStyleBuilder::new()
-        .alignment(Alignment::Center)
-        .baseline(Baseline::Top)
-        .build();
-
     const MONTH_COL_X: i32 = 6; // X position for month label (centered)
     const MONTH_LINE_X: i32 = 20; // X position for vertical month line
     const DAY_COL_X: i32 = 40; // X position for day column (shifted right)
     const EVENT_COL_X: i32 = 72; // X position for event details (shifted right)
     const EVENT_HEIGHT: i32 = 60;
-    const FIRST_EVENT_Y: i32 = 70; // Y offset for first event
+    const FIRST_EVENT_Y: i32 = 78; // Y offset for first event
+
+    let text_style = TextStyleBuilder::new()
+        .alignment(Alignment::Center)
+        .baseline(Baseline::Top)
+        .build();
 
     struct MonthGroup {
         month: i8,
@@ -357,6 +355,31 @@ pub fn draw_events(display: &mut Display7in5, events: &[ics::Event]) {
         )
         .draw(display)
         .unwrap();
+    }
+}
+
+pub fn draw_todos<'a>(display: &mut Display7in5, todos: impl Iterator<Item = &'a str>) {
+    let mut y = 790;
+
+    for todo in todos.take(3) {
+        RoundedRectangle::with_equal_corners(
+            Rectangle::with_center(Point::new(6, y - 12), Size::new_equal(12)),
+            Size::new_equal(4),
+        )
+        .into_styled(LINE_STYLE)
+        .draw(display)
+        .unwrap();
+
+        Text::with_text_style(
+            todo,
+            Point::new(22, y),
+            SPLEEN_LARGE_STYLE,
+            BOTTOM_TEXT_STYLE,
+        )
+        .draw(display)
+        .unwrap();
+
+        y -= 28;
     }
 }
 

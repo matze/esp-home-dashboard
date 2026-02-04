@@ -361,7 +361,12 @@ pub fn draw_events(display: &mut Display7in5, events: &[ics::Event]) {
 pub fn draw_todos<'a>(display: &mut Display7in5, todos: impl Iterator<Item = &'a str>) {
     let mut y = 790;
 
-    for todo in todos.take(3) {
+    for todo in todos
+        .take(3)
+        .collect::<heapless::Vec<_, 3>>()
+        .into_iter()
+        .rev()
+    {
         RoundedRectangle::with_equal_corners(
             Rectangle::with_center(Point::new(6, y - 12), Size::new_equal(12)),
             Size::new_equal(4),

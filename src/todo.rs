@@ -38,5 +38,6 @@ where
 
     Ok(core::str::from_utf8(&read_buffer[..size])
         .map_err(|_| Error::ParseUtf8)?
-        .split('\n'))
+        .split('\n')
+        .filter(|s| !s.is_empty()))
 }

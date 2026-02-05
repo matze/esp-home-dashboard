@@ -2,6 +2,8 @@ include!(concat!(env!("OUT_DIR"), "/font_spleen_8_16.rs"));
 include!(concat!(env!("OUT_DIR"), "/font_spleen_12_24.rs"));
 include!(concat!(env!("OUT_DIR"), "/font_spleen_16_32.rs"));
 
+use core::convert::Infallible;
+
 use embedded_graphics::image::Image;
 use embedded_graphics::mono_font::{MonoTextStyle, MonoTextStyleBuilder};
 use embedded_graphics::prelude::{Drawable, Point, Primitive, Size};
@@ -71,23 +73,23 @@ fn localized_month(month: i8) -> &'static str {
     }
 }
 
-pub fn draw_date(display: &mut Display7in5, date: Date) {
+pub fn draw_date(display: &mut Display7in5, date: Date) -> Result<(), Infallible> {
     let day: String<2> = format!("{:02}", date.day()).expect("formatting day");
     let month: String<2> = format!("{:02}", date.month()).expect("formatting month");
 
     Text::with_text_style(&day, Point::new(0, 0), SPLEEN_HUGE_STYLE, TOP_TEXT_STYLE)
-        .draw(display)
-        .unwrap();
+        .draw(display)?;
 
     Text::with_text_style(&month, Point::new(0, 32), SPLEEN_HUGE_STYLE, TOP_TEXT_STYLE)
-        .draw(display)
-        .unwrap();
+        .draw(display)?;
+
+    Ok(())
 }
 
 pub fn draw_hourly_weather(
     display: &mut Display7in5,
     forecast: impl Iterator<Item = weather::HourlyForecast>,
-) {
+) -> Result<(), Infallible> {
     let text_style = TextStyleBuilder::new()
         .alignment(Alignment::Center)
         .baseline(Baseline::Top)
@@ -102,8 +104,7 @@ pub fn draw_hourly_weather(
         let x = (index as i32 + 1) * 72;
 
         Text::with_text_style(&hour, Point::new(x, 3), SPLEEN_SMALL_STYLE, text_style)
-            .draw(display)
-            .unwrap();
+            .draw(display)?;
 
         Text::with_text_style(
             &temperature,
@@ -111,26 +112,25 @@ pub fn draw_hourly_weather(
             SPLEEN_SMALL_STYLE,
             text_style,
         )
-        .draw(display)
-        .unwrap();
+        .draw(display)?;
 
         Image::new(
             weather::hourly_icon(forecast.hour, forecast.weather_code),
             Point::new(x - 16, 17),
         )
-        .draw(display)
-        .unwrap();
+        .draw(display)?;
     }
+
+    Ok(())
 }
 
 pub fn draw_daily_weather(
     display: &mut Display7in5,
     forecast: impl Iterator<Item = weather::DailyForecast>,
-) {
+) -> Result<(), Infallible> {
     Line::new(Point::new(3 * 72 + 39, 8), Point::new(3 * 72 + 39, 50))
         .into_styled(LINE_STYLE)
-        .draw(display)
-        .expect("drawing line");
+        .draw(display)?;
 
     let text_style = TextStyleBuilder::new()
         .alignment(Alignment::Center)
@@ -153,8 +153,7 @@ pub fn draw_daily_weather(
             SPLEEN_SMALL_STYLE,
             text_style,
         )
-        .draw(display)
-        .unwrap();
+        .draw(display)?;
 
         Text::with_text_style(
             &temperature,
@@ -162,16 +161,16 @@ pub fn draw_daily_weather(
             SPLEEN_SMALL_STYLE,
             text_style,
         )
-        .draw(display)
-        .unwrap();
+        .draw(display)?;
 
         Image::new(
             weather::hourly_icon(12, forecast.weather_code),
             Point::new(x - 16, 17),
         )
-        .draw(display)
-        .unwrap();
+        .draw(display)?;
     }
+
+    Ok(())
 }
 
 fn draw_vertical_month_label(
@@ -180,7 +179,7 @@ fn draw_vertical_month_label(
     start_y: i32,
     end_y: i32,
     x: i32,
-) {
+) -> Result<(), Infallible> {
     let month_name = localized_month(month);
     let char_height = 16; // Height of SPLEEN_SMALL font
     let total_text_height = 3 * char_height; // We only have three-character abbreviated months
@@ -203,12 +202,13 @@ fn draw_vertical_month_label(
             SPLEEN_SMALL_STYLE,
             text_style,
         )
-        .draw(display)
-        .unwrap();
+        .draw(display)?;
     }
+
+    Ok(())
 }
 
-pub fn draw_events(display: &mut Display7in5, events: &[ics::Event]) {
+pub fn draw_events(display: &mut Display7in5, events: &[ics::Event]) -> Result<(), Infallible> {
     const MONTH_COL_X: i32 = 6; // X position for month label (centered)
     const MONTH_LINE_X: i32 = 20; // X position for vertical month line
     const DAY_COL_X: i32 = 40; // X position for day column (shifted right)
@@ -264,24 +264,21 @@ pub fn draw_events(display: &mut Display7in5, events: &[ics::Event]) {
             Point::new(MONTH_LINE_X, end_y + 2),
         )
         .into_styled(LINE_STYLE)
-        .draw(display)
-        .expect("drawing month line");
+        .draw(display)?;
 
         Line::new(
             Point::new(MONTH_LINE_X, start_y + 14),
             Point::new(MONTH_LINE_X + 4, start_y + 14),
         )
         .into_styled(LINE_STYLE)
-        .draw(display)
-        .unwrap();
+        .draw(display)?;
 
         Line::new(
             Point::new(MONTH_LINE_X, end_y + 2),
             Point::new(MONTH_LINE_X + 4, end_y + 2),
         )
         .into_styled(LINE_STYLE)
-        .draw(display)
-        .unwrap();
+        .draw(display)?;
 
         // Draw month label vertically centered
         draw_vertical_month_label(display, group.month, start_y + 12, end_y + 6, MONTH_COL_X);
@@ -297,8 +294,7 @@ pub fn draw_events(display: &mut Display7in5, events: &[ics::Event]) {
             SPLEEN_LARGE_STYLE,
             text_style,
         )
-        .draw(display)
-        .unwrap();
+        .draw(display)?;
 
         Text::with_text_style(
             localized_weekday(event.start.date().weekday()),
@@ -306,8 +302,7 @@ pub fn draw_events(display: &mut Display7in5, events: &[ics::Event]) {
             SPLEEN_SMALL_STYLE,
             text_style,
         )
-        .draw(display)
-        .unwrap();
+        .draw(display)?;
 
         // Draw event column with summary and times
         Text::with_text_style(
@@ -316,8 +311,7 @@ pub fn draw_events(display: &mut Display7in5, events: &[ics::Event]) {
             SPLEEN_LARGE_STYLE,
             TOP_TEXT_STYLE,
         )
-        .draw(display)
-        .unwrap();
+        .draw(display)?;
 
         let (duration_x, duration): (i32, String<32>) = match (&event.start, &event.end) {
             (Either::Date(_), Either::Date(end_date)) => {
@@ -328,8 +322,7 @@ pub fn draw_events(display: &mut Display7in5, events: &[ics::Event]) {
                     Point::new(EVENT_COL_X + 16, line_y),
                 )
                 .into_styled(LINE_STYLE)
-                .draw(display)
-                .unwrap();
+                .draw(display)?;
 
                 let end_formatted = format!(
                     "bis {}, {}",
@@ -353,12 +346,16 @@ pub fn draw_events(display: &mut Display7in5, events: &[ics::Event]) {
             SPLEEN_SMALL_STYLE,
             TOP_TEXT_STYLE,
         )
-        .draw(display)
-        .unwrap();
+        .draw(display)?;
     }
+
+    Ok(())
 }
 
-pub fn draw_todos<'a>(display: &mut Display7in5, todos: impl Iterator<Item = &'a str>) {
+pub fn draw_todos<'a>(
+    display: &mut Display7in5,
+    todos: impl Iterator<Item = &'a str>,
+) -> Result<(), Infallible> {
     let mut y = 790;
 
     for todo in todos
@@ -372,8 +369,7 @@ pub fn draw_todos<'a>(display: &mut Display7in5, todos: impl Iterator<Item = &'a
             Size::new_equal(4),
         )
         .into_styled(LINE_STYLE)
-        .draw(display)
-        .unwrap();
+        .draw(display)?;
 
         Text::with_text_style(
             todo,
@@ -381,11 +377,12 @@ pub fn draw_todos<'a>(display: &mut Display7in5, todos: impl Iterator<Item = &'a
             SPLEEN_LARGE_STYLE,
             BOTTOM_TEXT_STYLE,
         )
-        .draw(display)
-        .unwrap();
+        .draw(display)?;
 
         y -= 28;
     }
+
+    Ok(())
 }
 
 fn format_either(either: Either) -> String<16> {

@@ -33,7 +33,7 @@ impl Either {
     pub fn date(&self) -> jiff::civil::Date {
         match self {
             Either::DateTime(zoned) => zoned.date(),
-            Either::Date(date) => date.clone(),
+            Either::Date(date) => *date,
         }
     }
 }
@@ -151,34 +151,33 @@ where
                 }
 
                 if matches!(state, State::InVEvent) {
-                    if s.starts_with("DTEND") {
-                        if let Some((_, timestamp)) = s.split_once(':') {
-                            let Ok(end) = parse_ics_timestamp(timestamp, timezone.clone()) else {
-                                state = State::ScanVEvent;
-                                continue;
-                            };
-
-                            if end < Either::DateTime(now.clone()) {
-                                state = State::ScanVEvent;
-                            } else {
-                                current_event.end = end;
-                            }
-
+                    if s.starts_with("DTEND")
+                        && let Some((_, timestamp)) = s.split_once(':')
+                    {
+                        let Ok(end) = parse_ics_timestamp(timestamp, timezone.clone()) else {
+                            state = State::ScanVEvent;
                             continue;
+                        };
+
+                        if end < Either::DateTime(now.clone()) {
+                            state = State::ScanVEvent;
+                        } else {
+                            current_event.end = end;
                         }
+
+                        continue;
                     }
 
-                    if s.starts_with("DTSTART") {
-                        if let Some((_, timestamp)) = s.split_once(':') {
-                            let Ok(start) = parse_ics_timestamp(&timestamp, timezone.clone())
-                            else {
-                                state = State::ScanVEvent;
-                                continue;
-                            };
-
-                            current_event.start = start;
+                    if s.starts_with("DTSTART")
+                        && let Some((_, timestamp)) = s.split_once(':')
+                    {
+                        let Ok(start) = parse_ics_timestamp(timestamp, timezone.clone()) else {
+                            state = State::ScanVEvent;
                             continue;
-                        }
+                        };
+
+                        current_event.start = start;
+                        continue;
                     }
 
                     if let Some(summary) = s.strip_prefix("SUMMARY:") {

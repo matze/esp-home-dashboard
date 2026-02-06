@@ -18,6 +18,7 @@ embedded-graphics = "0.8.1"
 embedded-hal-bus = { version = "0.3.0", features = ["async"] }
 embedded-io = "0.7.1"
 embedded-io-async = "0.7.0"
+embedded-nal-async = "0.9.0"
 epd-waveshare = { git = "https://github.com/XLPhere/epd-waveshare", branch = "async", default-features = false, features = ["async", "embedded-graphics-core", "graphics", "epd2in13_v3"] }
 esp-alloc = "0.9.0"
 esp-backtrace = { version = "0.18.1", features = ["esp32c3", "panic-handler", "println"] }
@@ -31,13 +32,13 @@ jiff = { version = "0.2.18", default-features = false, features = ["alloc", "ser
 log = "0.4.27"
 smoltcp = { version = "0.12.0", default-features = false, features = ["log", "dns-max-server-count-4", "medium-ethernet", "multicast", "proto-dhcpv4", "proto-dns", "proto-ipv4", "socket-dns", "socket-icmp", "socket-raw", "socket-tcp", "socket-udp"] }
 static_cell = "2.1.1"
+rapidhash = { version = "4.2.2", default-features = false }
 reqwless = { version = "0.14.0", default-features = false, features = ["alloc", "embedded-tls"] }
 sntpc = { version = "0.8.1", default-features = false }
 sntpc-net-embassy = "0.8.0"
 serde-json-core = "0.6.0"
 serde = { version = "1.0.228", default-features = false, features = ["derive"] }
 serde_repr = "0.1.20"
-embedded-nal-async = "0.9.0"
 serde_with = { version = "3.16.1", default-features = false, features = ["macros"] }
 
 [build-dependencies]

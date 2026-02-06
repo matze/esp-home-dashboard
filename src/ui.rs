@@ -3,11 +3,12 @@ include!(concat!(env!("OUT_DIR"), "/font_spleen_12_24.rs"));
 include!(concat!(env!("OUT_DIR"), "/font_spleen_16_32.rs"));
 
 use core::convert::Infallible;
+use core::hash::BuildHasher;
 
-use embedded_graphics::image::Image;
+use embedded_graphics::image::{Image, ImageRaw};
 use embedded_graphics::mono_font::{MonoTextStyle, MonoTextStyleBuilder};
-use embedded_graphics::prelude::{Drawable, Point, Primitive, Size};
-use embedded_graphics::primitives::{Line, PrimitiveStyle, Rectangle, RoundedRectangle};
+use embedded_graphics::prelude::{Drawable, Point, Primitive};
+use embedded_graphics::primitives::{Circle, Line, PrimitiveStyle};
 use embedded_graphics::text::{Alignment, Baseline, Text, TextStyle, TextStyleBuilder};
 use epd_waveshare::epd7in5_v2::Display7in5;
 use epd_waveshare::prelude::*;
@@ -15,9 +16,10 @@ use esp_backtrace as _;
 use heapless::{String, format};
 use jiff::civil::{Date, Weekday};
 use jiff::fmt::strtime;
+use rapidhash::fast;
 
 use crate::ics::Either;
-use crate::{ics, weather};
+use crate::{icons, ics, weather};
 
 const SPLEEN_HUGE_STYLE: MonoTextStyle<Color> = MonoTextStyleBuilder::new()
     .font(&FONT_SPLEEN_16_32)
@@ -364,12 +366,13 @@ pub fn draw_todos<'a>(
         .into_iter()
         .rev()
     {
-        RoundedRectangle::with_equal_corners(
-            Rectangle::with_center(Point::new(6, y - 12), Size::new_equal(12)),
-            Size::new_equal(4),
-        )
-        .into_styled(LINE_STYLE)
-        .draw(display)?;
+        if let Some(icon) = get_icon_when_assigned(todo) {
+            Image::new(&icon, Point::new(0, y - 20)).draw(display)?;
+        } else {
+            Circle::new(Point::new(2, y - 17), 11)
+                .into_styled(LINE_STYLE)
+                .draw(display)?;
+        }
 
         Text::with_text_style(
             todo,
@@ -402,4 +405,17 @@ fn format_either(either: Either) -> String<16> {
 
 fn fix_minus_zero(num: f32) -> f32 {
     if num > -1.0 && num < 0.0 { 0.0 } else { num }
+}
+
+/// Returns an icon indexed into the pyairvander icon set if `s` contains a substring `@foobar`.
+fn get_icon_when_assigned(s: &str) -> Option<ImageRaw<'static, Color>> {
+    let state = fast::SeedableState::new(0);
+
+    s.find('@')
+        .map(|start| (start, s[start..].find(' ').unwrap_or(s.len())))
+        .and_then(|(start, end)| s.get(start..end))
+        .map(|assignee| {
+            state.hash_one(assignee.as_bytes()) as usize % icons::PYAIRVANDER_ICON_COUNT
+        })
+        .map(|index| icons::pyairvander_icon(index))
 }

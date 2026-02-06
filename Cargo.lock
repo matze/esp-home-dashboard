@@ -1160,6 +1160,7 @@ dependencies = [
  "heapless 0.9.2",
  "jiff",
  "log",
+ "rapidhash",
  "reqwless",
  "serde",
  "serde-json-core",
@@ -2068,6 +2069,15 @@ name = "rand_core"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "99d9a13982dcf210057a8a78572b2217b667c3beacbf3a0d8b454f6f82837d38"
+
+[[package]]
+name = "rapidhash"
+version = "4.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71ec30b38a417407efe7676bad0ca6b78f995f810185ece9af3bd5dc561185a9"
+dependencies = [
+ "rustversion",
+]
 
 [[package]]
 name = "regex-automata"

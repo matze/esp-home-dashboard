@@ -72,3 +72,24 @@ pub const SNOW_SUN: ImageRaw<Color> =
 pub const SUN: ImageRaw<Color> = ImageRaw::new(include_bytes!("../assets/icons/sun.raw"), 32);
 
 pub const WIND: ImageRaw<Color> = ImageRaw::new(include_bytes!("../assets/icons/wind.raw"), 32);
+
+/// 16x16 icon spritesheet (6 columns x 8 rows = 48 icons, tile-ordered).
+const PYAIRVANDER_ICON_DATA: &[u8] = include_bytes!("../assets/icons/1bit_fantasy_pyairvander.raw");
+
+const PYAIRVANDER_BYTES_PER_ICON: usize = 16 * 16 / 8; // 32
+
+pub const PYAIRVANDER_ICON_COUNT: usize = PYAIRVANDER_ICON_DATA.len() / PYAIRVANDER_BYTES_PER_ICON;
+
+/// Returns a 16x16 icon from the pyairvander spritesheet by index (0..48).
+///
+/// # Panics
+///
+/// Panics if `index >= 48`.
+pub fn pyairvander_icon(index: usize) -> ImageRaw<'static, Color> {
+    assert!(index < PYAIRVANDER_ICON_COUNT);
+    let offset = index * PYAIRVANDER_BYTES_PER_ICON;
+    ImageRaw::new(
+        &PYAIRVANDER_ICON_DATA[offset..offset + PYAIRVANDER_BYTES_PER_ICON],
+        16,
+    )
+}

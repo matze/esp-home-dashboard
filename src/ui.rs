@@ -376,13 +376,13 @@ pub fn draw_todos<'a>(
 
         Text::with_text_style(
             todo,
-            Point::new(22, y),
+            Point::new(24, y),
             SPLEEN_LARGE_STYLE,
             BOTTOM_TEXT_STYLE,
         )
         .draw(display)?;
 
-        y -= 28;
+        y -= 30;
     }
 
     Ok(())

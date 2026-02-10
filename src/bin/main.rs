@@ -190,6 +190,11 @@ async fn main(_spawner: Spawner) -> ! {
                 .await
                 .expect("failed to display frame");
 
+            // After DisplayRefresh the display needs time to start the
+            // refresh and assert BUSY. Without this delay wait_until_idle
+            // can see BUSY still de-asserted and return immediately.
+            Timer::after(Duration::from_secs(1)).await;
+
             epd.wait_until_idle(&mut spi, &mut Delay)
                 .await
                 .expect("wait until idle to succeed");

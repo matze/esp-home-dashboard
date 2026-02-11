@@ -183,7 +183,34 @@ pub fn hourly_icon(hour: u8, weather_code: WeatherCode) -> &'static ImageRaw<'st
             &icons::RAIN0
         }
         (_, WeatherCode::ModerateRain | WeatherCode::SlightRainShower) => &icons::RAIN1,
-        (_, WeatherCode::HeavyRain) => &icons::RAIN2,
+        (
+            _,
+            WeatherCode::HeavyRain
+            | WeatherCode::ModerateRainShower
+            | WeatherCode::ViolentRainShower,
+        ) => &icons::RAIN2,
+        (
+            _,
+            WeatherCode::SlightSnow
+            | WeatherCode::ModerateSnow
+            | WeatherCode::HeavySnow
+            | WeatherCode::SnowGrains
+            | WeatherCode::SlightSnowShower
+            | WeatherCode::HeavySnowShower,
+        ) => &icons::SNOW,
+        (
+            _,
+            WeatherCode::FreezingLightRain
+            | WeatherCode::FreezingHeavyRain
+            | WeatherCode::LightFreezingDrizzle
+            | WeatherCode::DenseFreezingDrizzle,
+        ) => &icons::RAIN_SNOW,
+        (
+            _,
+            WeatherCode::SlightThunderstorm
+            | WeatherCode::SlightThunderstormSlightHail
+            | WeatherCode::SlightThunderstormHeavyHail,
+        ) => &icons::LIGHTNING,
         x => {
             log::warn!("{x:?} not covered");
             &icons::SUN
@@ -217,6 +244,8 @@ pub enum WeatherCode {
     SlightRainShower = 80,
     ModerateRainShower = 81,
     ViolentRainShower = 82,
+    SlightSnowShower = 85,
+    HeavySnowShower = 86,
     SlightThunderstorm = 95,
     SlightThunderstormSlightHail = 96,
     SlightThunderstormHeavyHail = 99,

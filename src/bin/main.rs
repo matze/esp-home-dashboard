@@ -162,7 +162,7 @@ async fn main(_spawner: Spawner) -> ! {
 
             match ics::get_events(&mut client, clock.clone(), ICAL_URL, &mut events).await {
                 Ok(events) => {
-                    ui::draw_events(&mut display, events);
+                    ui::draw_events(&mut display, events, clock.now().date());
                 }
                 Err(err) => {
                     log::error!("failed to fetch events: {err:?}");

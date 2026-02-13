@@ -210,11 +210,15 @@ fn draw_vertical_month_label(
     Ok(())
 }
 
-pub fn draw_events(display: &mut Display7in5, events: &[ics::Event]) -> Result<(), Infallible> {
+pub fn draw_events(
+    display: &mut Display7in5,
+    events: &[ics::Event],
+    today: Date,
+) -> Result<(), Infallible> {
     const MONTH_COL_X: i32 = 6; // X position for month label (centered)
     const MONTH_LINE_X: i32 = 20; // X position for vertical month line
-    const DAY_COL_X: i32 = 40; // X position for day column (shifted right)
-    const EVENT_COL_X: i32 = 72; // X position for event details (shifted right)
+    const DAY_COL_X: i32 = 46; // X position for day column (shifted right)
+    const EVENT_COL_X: i32 = 70; // X position for event details (shifted right)
     const EVENT_HEIGHT: i32 = 60;
     const FIRST_EVENT_Y: i32 = 78; // Y offset for first event
 
@@ -288,6 +292,23 @@ pub fn draw_events(display: &mut Display7in5, events: &[ics::Event]) -> Result<(
 
     for (index, event) in events.iter().enumerate() {
         let y_offset = FIRST_EVENT_Y + index as i32 * EVENT_HEIGHT;
+
+        if event.start.date() == today {
+            Line::new(
+                Point::new(MONTH_LINE_X, y_offset + 24),
+                Point::new(MONTH_LINE_X + 8, y_offset + 32),
+            )
+            .into_styled(LINE_STYLE)
+            .draw(display)?;
+
+            Line::new(
+                Point::new(MONTH_LINE_X + 8, y_offset + 32),
+                Point::new(MONTH_LINE_X, y_offset + 40),
+            )
+            .into_styled(LINE_STYLE)
+            .draw(display)?;
+        }
+
         let day = strtime::format("%d", event.start.date()).unwrap();
 
         Text::with_text_style(

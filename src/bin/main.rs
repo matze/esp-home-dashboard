@@ -7,7 +7,7 @@ use embassy_executor::Spawner;
 use embassy_futures::join;
 use embassy_net::tcp::client::{TcpClient, TcpClientState};
 use embassy_net::{DhcpConfig, dns::DnsSocket};
-use embassy_time::{Delay, Duration, Timer};
+use embassy_time::{Delay, Duration, Timer, with_timeout};
 use embedded_graphics::prelude::DrawTarget;
 use embedded_hal_bus::spi::ExclusiveDevice;
 use epd_waveshare::epd7in5_v2::{Display7in5, Epd7in5};
@@ -101,7 +101,7 @@ async fn main(_spawner: Spawner) -> ! {
     let clock = clock::Clock::new(timezone.clone());
 
     // Careful: this needs to cover _all_ sockets we want to use.
-    let mut resources = embassy_net::StackResources::<4>::new();
+    let mut resources = embassy_net::StackResources::<6>::new();
 
     let (net_stack, mut net_runner) =
         embassy_net::new(wifi_device, net_config, &mut resources, net_seed);
@@ -134,25 +134,41 @@ async fn main(_spawner: Spawner) -> ! {
 
             display.clear(Color::Black);
 
-            match weather::hourly_forecast(&mut client).await {
-                Ok(forecast) => {
+            match with_timeout(
+                Duration::from_secs(30),
+                weather::hourly_forecast(&mut client),
+            )
+            .await
+            {
+                Ok(Ok(forecast)) => {
                     let hour = clock.now().time().hour();
                     let forecast = forecast.into_iter().skip(hour as usize).step_by(2).take(3);
 
                     ui::draw_hourly_weather(&mut display, forecast);
                 }
-                Err(err) => {
+                Ok(Err(err)) => {
                     log::error!("failed to fetch hourly forecast: {err:?}");
+                }
+                Err(_) => {
+                    log::error!("hourly forecast timed out");
                 }
             }
 
-            match weather::daily_forecast(&mut client).await {
-                Ok(forecast) => {
+            match with_timeout(
+                Duration::from_secs(30),
+                weather::daily_forecast(&mut client),
+            )
+            .await
+            {
+                Ok(Ok(forecast)) => {
                     let forecast = forecast.into_iter().skip(1);
                     ui::draw_daily_weather(&mut display, forecast);
                 }
-                Err(err) => {
+                Ok(Err(err)) => {
                     log::error!("failed to fetch daily forecast: {err:?}");
+                }
+                Err(_) => {
+                    log::error!("daily forecast timed out");
                 }
             }
 
@@ -160,24 +176,40 @@ async fn main(_spawner: Spawner) -> ! {
 
             let mut events: [ics::Event; 10] = Default::default();
 
-            match ics::get_events(&mut client, clock.clone(), ICAL_URL, &mut events).await {
-                Ok(events) => {
+            match with_timeout(
+                Duration::from_secs(30),
+                ics::get_events(&mut client, clock.clone(), ICAL_URL, &mut events),
+            )
+            .await
+            {
+                Ok(Ok(events)) => {
                     ui::draw_events(&mut display, events, clock.now().date());
                 }
-                Err(err) => {
+                Ok(Err(err)) => {
                     log::error!("failed to fetch events: {err:?}");
+                }
+                Err(_) => {
+                    log::error!("fetching events timed out");
                 }
             }
 
             if let Some((url, auth_header)) = TODO_URL.zip(TODO_AUTHORIZATION_HEADER) {
                 let mut read_buffer = [0u8; 1024];
 
-                match todo::get_todos(&mut client, url, auth_header, &mut read_buffer).await {
-                    Ok(todos) => {
+                match with_timeout(
+                    Duration::from_secs(30),
+                    todo::get_todos(&mut client, url, auth_header, &mut read_buffer),
+                )
+                .await
+                {
+                    Ok(Ok(todos)) => {
                         ui::draw_todos(&mut display, todos);
                     }
-                    Err(err) => {
+                    Ok(Err(err)) => {
                         log::error!("failed to fetch todos: {err:?}");
+                    }
+                    Err(_) => {
+                        log::error!("fetching todos timed out");
                     }
                 }
             }

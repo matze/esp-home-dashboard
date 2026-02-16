@@ -1,5 +1,5 @@
 use embassy_net::{Stack, udp::UdpSocket};
-use embassy_time::{Instant, Timer};
+use embassy_time::{Duration, Instant, Timer, with_timeout};
 use sntpc_net_embassy::UdpSocketWrapper;
 
 use crate::clock::Clock;
@@ -25,6 +25,8 @@ impl sntpc::NtpTimestampGenerator for TimestampGenerator {
 
 pub async fn sync(net_stack: &Stack<'_>, host_name: &str, clock: Clock) {
     loop {
+        log::info!("syncing, now={:?}", clock.now());
+
         net_stack.wait_link_up().await;
         net_stack.wait_config_up().await;
 
@@ -43,7 +45,8 @@ pub async fn sync(net_stack: &Stack<'_>, host_name: &str, clock: Clock) {
 
         if let Err(err) = socket.bind(0) {
             log::error!("failed to bind UDP socket for NTP: {err:?}");
-            return;
+            Timer::after_secs(30).await;
+            continue;
         }
 
         let addresses = match net_stack
@@ -64,12 +67,19 @@ pub async fn sync(net_stack: &Stack<'_>, host_name: &str, clock: Clock) {
             let socket_wrapper = UdpSocketWrapper::new(socket);
             let context = sntpc::NtpContext::new(TimestampGenerator::default());
 
-            match sntpc::get_time((*address, 123).into(), &socket_wrapper, context).await {
-                Ok(time) => {
+            match with_timeout(
+                Duration::from_secs(10),
+                sntpc::get_time((*address, 123).into(), &socket_wrapper, context),
+            )
+            .await
+            {
+                Ok(Ok(time)) => {
                     clock.sync(time.sec().into());
+                    log::info!("synced, now={:?}", clock.now());
                     Timer::after_secs(3600).await;
                 }
-                Err(e) => log::error!("NTP error: {:?}", e),
+                Ok(Err(e)) => log::error!("NTP error: {:?}", e),
+                Err(_) => log::error!("NTP request timed out"),
             }
         }
     }

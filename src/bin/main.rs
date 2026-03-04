@@ -142,7 +142,7 @@ async fn main(_spawner: Spawner) -> ! {
             {
                 Ok(Ok(forecast)) => {
                     let hour = clock.now().time().hour();
-                    let forecast = forecast.into_iter().skip(hour as usize).step_by(2).take(3);
+                    let forecast = forecast.into_iter().skip(hour as usize).step_by(3).take(3);
 
                     ui::draw_hourly_weather(&mut display, forecast);
                 }

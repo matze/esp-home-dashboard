@@ -22,19 +22,26 @@ where
 
     let mut write_buffer = [0u8; 1024];
 
-    let size = client
-        .request(Method::GET, url)
-        .await
-        .map_err(|_| Error::Http("failed to connect to todo URL"))?
-        .headers(&headers)
-        .send(&mut write_buffer)
-        .await
-        .map_err(|_| Error::Http("failed to send request"))?
-        .body()
-        .reader()
-        .read_to_end(read_buffer)
-        .await
-        .map_err(|_| Error::Http("failed to read into buffer"))?;
+    let size = {
+        let result = client
+            .request(Method::GET, url)
+            .await
+            .map_err(|_| Error::Http("failed to connect to todo URL"))?
+            .headers(&headers)
+            .send(&mut write_buffer)
+            .await
+            .map_err(|_| Error::Http("failed to send request"))?
+            .body()
+            .reader()
+            .read_to_end(read_buffer)
+            .await;
+
+        match result {
+            Ok(n) => n,
+            Err(reqwless::Error::BufferTooSmall) => read_buffer.len(),
+            Err(_) => return Err(Error::Http("failed to read into buffer")),
+        }
+    };
 
     Ok(core::str::from_utf8(&read_buffer[..size])
         .map_err(|_| Error::ParseUtf8)?

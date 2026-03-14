@@ -174,7 +174,7 @@ async fn main(_spawner: Spawner) -> ! {
 
             ui::draw_date(&mut display, clock.now().date());
 
-            let mut events: [ics::Event; 10] = Default::default();
+            let mut events: [ics::Event; 30] = Default::default();
 
             match with_timeout(
                 Duration::from_secs(30),
@@ -183,7 +183,7 @@ async fn main(_spawner: Spawner) -> ! {
             .await
             {
                 Ok(Ok(events)) => {
-                    ui::draw_events(&mut display, events, clock.now().date());
+                    ui::draw_events(&mut display, &events[..10.min(events.len())], clock.now().date());
                 }
                 Ok(Err(err)) => {
                     log::error!("failed to fetch events: {err:?}");

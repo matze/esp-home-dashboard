@@ -103,7 +103,7 @@ pub fn draw_hourly_weather(
 
         let hour: String<8> = format!("{:0>2}:00", forecast.hour).unwrap();
 
-        let x = (index as i32 + 1) * 72;
+        let x = (index as i32 + 1) * 68;
 
         Text::with_text_style(&hour, Point::new(x, 3), SPLEEN_SMALL_STYLE, text_style)
             .draw(display)?;
@@ -130,7 +130,7 @@ pub fn draw_daily_weather(
     display: &mut Display7in5,
     forecast: impl Iterator<Item = weather::DailyForecast>,
 ) -> Result<(), Infallible> {
-    Line::new(Point::new(3 * 72 + 39, 8), Point::new(3 * 72 + 39, 50))
+    Line::new(Point::new(3 * 68 + 35, 8), Point::new(3 * 68 + 35, 50))
         .into_styled(LINE_STYLE)
         .draw(display)?;
 
@@ -147,7 +147,7 @@ pub fn draw_daily_weather(
         )
         .expect("formatting temperature");
 
-        let x = (index as i32 + 1) * 72 + 3 * 72 + 5;
+        let x = (index as i32 + 1) * 78 + 3 * 68 + 5;
 
         Text::with_text_style(
             localized_weekday(forecast.date.weekday()),

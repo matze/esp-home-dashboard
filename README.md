@@ -24,20 +24,9 @@ Connect display VCC to 3.3V and GND to ground.
 
 ## Flashing
 
-Environment variables are embedded at compile time:
-
-```bash
-WIFI_SSID="" \
-WIFI_PASSWORD="" \
-NTP_HOST_NAME="" \
-ICAL_URL="" \
-WEATHER_LAT="" \
-WEATHER_LON="" \
-TODO_URL="" \
-TODO_AUTHORIZATION_HEADER="" cargo run --release
-```
-
-Note, `NTP_HOST_NAME` defaults to `de.pool.ntp.org`.
+Environment variables are embedded at compile time and can be loaded from a
+`.env` file. See `.env.example` for possible keys. Flash with `cargo run
+--release`.
 
 ## License
 

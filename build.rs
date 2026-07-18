@@ -1,3 +1,8 @@
+use std::{
+    fs::File,
+    io::{BufRead, BufReader},
+};
+
 use eg_font_converter::FontConverter;
 
 fn main() {
@@ -19,9 +24,34 @@ fn main() {
             .expect("saving mono font");
     }
 
+    forward_dotenv_vars();
     linker_be_nice();
     // make sure linkall.x is the last linker script (otherwise might cause problems with flip-link)
     println!("cargo:rustc-link-arg=-Tlinkall.x");
+}
+
+fn forward_dotenv_vars() {
+    println!("cargo:rerun-if-changed=.env");
+
+    let path = std::path::Path::new(".env");
+
+    if !path.exists() {
+        return;
+    }
+
+    let reader = BufReader::new(File::open(".env").unwrap());
+
+    for line in reader.lines().flatten() {
+        let line = line.trim();
+
+        if line.starts_with('#') || line.is_empty() {
+            continue;
+        }
+
+        if let Some((key, value)) = line.split_once('=') {
+            println!("cargo:rustc-env={}={}", key.trim(), value.trim());
+        }
+    }
 }
 
 fn linker_be_nice() {
